@@ -2,6 +2,7 @@ use std::thread::JoinHandle;
 
 use clap::Parser;
 
+const PARALLELISM_FACTOR: usize = 4;
 const ABOUT: &str = "Concatenate FILE(s) to standard output.
 
 With no FILE, or when FILE is -, read standard input.";
@@ -24,6 +25,7 @@ impl CatArgs {
         let mut output = String::new();
         let mut handlers = Vec::new();
         let max_threads: usize = std::thread::available_parallelism()?.into();
+        let max_threads = max_threads * PARALLELISM_FACTOR;
 
         let max_threads = if max_threads == 1 {
             max_threads
