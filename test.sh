@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 
-for file in $(find . -type f)
-do
-  echo catting $file
+list=$(find . -type f)
+cargo build --release
 
-  cargo run -- $file
+for file in $list
+do
+  ./target/release/cat $file
 done

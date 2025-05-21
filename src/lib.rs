@@ -1,3 +1,5 @@
+use std::thread::JoinHandle;
+
 use clap::Parser;
 
 const ABOUT: &str = "Concatenate FILE(s) to standard output.
@@ -21,6 +23,15 @@ impl CatArgs {
     pub fn exec(self) -> Result<String, Box<dyn std::error::Error>> {
         let mut output = String::new();
         let mut handlers = Vec::new();
+        let max_threads: usize = std::thread::available_parallelism()?.into();
+
+        let max_threads = if max_threads == 1 {
+            max_threads
+        } else {
+            max_threads - 1
+        };
+
+        let mut nonblank_count = 0;
 
         for path in self.value {
             let handler = std::thread::spawn(move || {
@@ -30,27 +41,53 @@ impl CatArgs {
             });
 
             handlers.push(handler);
-        }
 
-        let mut nonblank_count = 0;
-        for handler in handlers {
-            let file_content = handler.join().expect("Unable to join threads");
+            if handlers.len() >= max_threads {
+                drain_handlers(
+                    handlers,
+                    &mut output,
+                    &mut nonblank_count,
+                    self.number_nonblank,
+                );
 
-            if !self.number_nonblank {
-                output.push_str(&file_content)
-            } else {
-                for line in file_content.lines() {
-                    if !line.is_empty() {
-                        nonblank_count += 1;
-                        output.push_str(&format!("{:6}\t{}\n", nonblank_count, line));
-                    } else {
-                        output.push_str(line);
-                        output.push('\n');
-                    }
-                }
+                handlers = Vec::new();
             }
         }
 
+        if !handlers.is_empty() {
+            drain_handlers(
+                handlers,
+                &mut output,
+                &mut nonblank_count,
+                self.number_nonblank,
+            );
+        }
+
         Ok(output)
+    }
+}
+
+fn drain_handlers(
+    handlers: Vec<JoinHandle<String>>,
+    output: &mut String,
+    nonblank_count: &mut u32,
+    number_nonblank: bool,
+) {
+    for handler in handlers {
+        let file_content = handler.join().expect("Unable to join threads");
+
+        if !number_nonblank {
+            output.push_str(&file_content)
+        } else {
+            for line in file_content.lines() {
+                if !line.is_empty() {
+                    *nonblank_count += 1;
+                    output.push_str(&format!("{:6}\t{}\n", nonblank_count, line));
+                } else {
+                    output.push_str(line);
+                    output.push('\n');
+                }
+            }
+        }
     }
 }
