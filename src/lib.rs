@@ -23,14 +23,18 @@ impl CatArgs {
         let mut handlers = Vec::new();
 
         for path in self.value {
-            let handler = std::thread::spawn(move || std::fs::read_to_string(&path));
+            let handler = std::thread::spawn(move || {
+                let bytes = std::fs::read(&path).expect("Unable to read file");
+
+                unsafe { String::from_utf8_unchecked(bytes) }
+            });
 
             handlers.push(handler);
         }
 
         let mut nonblank_count = 0;
         for handler in handlers {
-            let file_content = handler.join().expect("Unable to read file")?;
+            let file_content = handler.join().expect("Unable to join threads");
 
             if !self.number_nonblank {
                 output.push_str(&file_content)
@@ -38,7 +42,7 @@ impl CatArgs {
                 for line in file_content.lines() {
                     if !line.is_empty() {
                         nonblank_count += 1;
-                        output.push_str(&format!("{:6}  {}\n", nonblank_count, line));
+                        output.push_str(&format!("{:6}\t{}\n", nonblank_count, line));
                     } else {
                         output.push_str(line);
                         output.push('\n');
