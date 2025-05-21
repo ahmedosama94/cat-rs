@@ -19,6 +19,9 @@ pub struct CatArgs {
     #[arg(short = 'b', help = "number nonempty output lines, overrides -n")]
     number_nonblank: bool,
 
+    #[arg(short = 'e', help = "display $ at end of each line")]
+    show_ends: bool,
+
     #[arg(value_name = "FILE", value_delimiter = ' ', num_args=1..)]
     value: Vec<String>,
 }
@@ -79,17 +82,22 @@ impl CatArgs {
         for handler in handlers {
             let file_content = handler.join().expect("Unable to join threads");
 
-            if !self.number && !self.number_nonblank {
+            if !self.number && !self.number_nonblank && !self.show_ends {
                 output.push_str(&file_content)
             } else {
                 for line in file_content.lines() {
-                    if self.number || !line.is_empty() {
+                    if self.number || (self.number_nonblank && !line.is_empty()) {
                         *line_count += 1;
-                        output.push_str(&format!("{:6}\t{}\n", line_count, line));
+                        output.push_str(&format!("{:6}\t{}", line_count, line));
                     } else {
                         output.push_str(line);
-                        output.push('\n');
                     }
+
+                    if self.show_ends {
+                        output.push('$');
+                    }
+
+                    output.push('\n');
                 }
             }
         }
