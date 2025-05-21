@@ -25,6 +25,9 @@ pub struct CatArgs {
     #[arg(short = 's', help = "suppress repeated empty output lines")]
     squeeze_blank: bool,
 
+    #[arg(short = 't', help = "display TAB characters as ^I")]
+    show_tabs: bool,
+
     #[arg(value_name = "FILE", value_delimiter = ' ', num_args=1..)]
     value: Vec<String>,
 
@@ -95,9 +98,17 @@ impl CatArgs {
 
                 if self.number || (self.number_nonblank && !line.is_empty()) {
                     *line_count += 1;
-                    output.push_str(&format!("{:6}\t{}", line_count, line));
-                } else {
-                    output.push_str(line);
+                    output.push_str(&format!("{:6}\t", line_count));
+                } else if self.number_nonblank && line.is_empty() {
+                    output.push_str("      \t");
+                }
+
+                for ch in line.chars() {
+                    if self.show_tabs && ch == '\t' {
+                        output.push_str("^I");
+                    } else {
+                        output.push(ch);
+                    }
                 }
 
                 if line.is_empty() {
